@@ -2,6 +2,11 @@
 
 A million permutation hypothesis test utility.
 
+## Installation
+
+1. [install Rust](https://www.rust-lang.org/tools/install)
+2. `cargo install --git https://git.sr.ht/~swaits/megapermute`
+
 ## Usage
 
 `megapermute` requires two input files, `control.dat` and `treatment.dat`. Each is a text
