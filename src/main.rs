@@ -14,6 +14,7 @@ const N_THREADS: usize = 1_000;
 // the number of permutation tests to run per "thread" (above)
 const N_PERMUTATIONS_PER_THREAD: usize = 1_000;
 
+// load a file of numbers as f64 and panic if we run into any problems
 fn load_f64s(filename: &str) -> Result<Vec<f64>> {
     let f = BufReader::new(File::open(filename)?);
     Ok(f.lines()
@@ -31,13 +32,33 @@ fn mean<'a>(iter: impl Iterator<Item = &'a f64>) -> f64 {
         .fold(0.0, |mu, (i, x)| mu + ((x - mu) / (i + 1) as f64))
 }
 
+// this enum is used to denote group memebership during each permutation
 #[derive(Clone, PartialEq, Eq)]
 enum Group {
     Control,
     Treatment,
 }
 
-fn permute(control: &[f64], treatment: &[f64], mu_diff: f64) -> f64 {
+// Run the permutation tests.
+//
+// Accepts the control and treatment arrays along with the difference in empircal means (treatment
+// minus control).
+//
+// Runs N_PERMUTATIONS_PER_THREAD on each of N_THREADS using Rayon's `par_iter()`.
+//
+// The original data (arrays) is never copied. Each of the iterations creates an index array of
+// `enum Group` denoting `Control` or `Treatment` at each index. That `index` array is shuffled to
+// permute group memebership. Finally, each of the group's means are computed and compared, and
+// filtered to only count differences which are larger than the `mu_diff` parameter.
+//
+// The final p-value is the number of permutations where the diff in means exceeded `mu_diff`
+// divided by (N_THREADS * N_PERMUTATIONS_PER_THREAD).
+//
+// Note: the left tail or right tail is chosen automatically based on whether the empircal mean
+// delta is positive or negative.
+fn permutation_test(control: &[f64], treatment: &[f64], mu_diff: f64) -> f64 {
+    // use Rayon to divide this work across N_THREADS, ultimately counting the number of
+    // permutations where delta(means) > mu_diff
     let count: f64 = (0..N_THREADS)
         .into_par_iter()
         .map(|_| {
@@ -57,39 +78,28 @@ fn permute(control: &[f64], treatment: &[f64], mu_diff: f64) -> f64 {
                     // shuffle our group selections
                     index.shuffle(&mut rng);
 
-                    // comput emean of this "control permutation"
-                    let permuted_mean_control = mean(
-                        control
-                            .iter()
-                            .chain(treatment.iter())
-                            .enumerate()
-                            .filter_map(|(i, x)| {
-                                if index[i] == Group::Control {
-                                    Some(x)
-                                } else {
-                                    None
-                                }
-                            }),
-                    );
+                    // variables for mean computation
+                    let (mut mu_control, mut n_control) = (0.0, 0.0);
+                    let (mut mu_treatment, mut n_treatment) = (0.0, 0.0);
 
-                    // comput emean of this "treatment permutation"
-                    let permuted_mean_treatment = mean(
-                        control
-                            .iter()
-                            .chain(treatment.iter())
-                            .enumerate()
-                            .filter_map(|(i, x)| {
-                                if index[i] == Group::Treatment {
-                                    Some(x)
-                                } else {
-                                    None
-                                }
-                            }),
+                    // walk the combined iterator and add each element to the corresponding mean
+                    // using Welford's online algorithm
+                    control.iter().chain(treatment.iter()).enumerate().for_each(
+                        |(i, x)| match index[i] {
+                            Group::Control => {
+                                n_control += 1.0;
+                                mu_control += (x - mu_control) / n_control
+                            }
+                            Group::Treatment => {
+                                n_treatment += 1.0;
+                                mu_treatment += (x - mu_treatment) / n_treatment
+                            }
+                        },
                     );
 
                     // select this permutation if the diff in these permuted means is more than the
                     // empirical diff of means
-                    (permuted_mean_treatment - permuted_mean_control) > mu_diff
+                    (mu_treatment - mu_control) > mu_diff
                 })
                 .count() as f64
         })
@@ -123,7 +133,7 @@ fn main() -> Result<()> {
     );
 
     // run permutation test to compute p-value
-    let pvalue = permute(&control, &treatment, mean_treatment - mean_control);
+    let pvalue = permutation_test(&control, &treatment, mean_treatment - mean_control);
     println!("                    p-value = {}", pvalue);
 
     Ok(())
@@ -160,7 +170,7 @@ mod tests {
         ));
 
         // run permutation test to compute p-value
-        let pvalue = permute(&control, &treatment, mean_treatment - mean_control);
+        let pvalue = permutation_test(&control, &treatment, mean_treatment - mean_control);
         assert!(approx_eq(pvalue, 0.13896357, PVALUE_EPSILON));
     }
 }
