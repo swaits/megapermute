@@ -117,6 +117,22 @@ fn permutation_test(control: &[f64], treatment: &[f64], mu_diff: f64) -> f64 {
     }
 }
 
+// convert p-value to conventional language
+fn pvalue_to_str(p: f64) -> String {
+    if p < 0.01 {
+        "very strong evidence agaisnt null hypothesis".to_string()
+    } else if p < 0.025 {
+        "strong evidence against null hypothesis".to_string()
+    } else if p < 0.05 {
+        "reasonably strong evidence against null hypothesis".to_string()
+    } else if p < 0.10 {
+        "borderline evidence against null hypothesis".to_string()
+    } else {
+        "no evidence against null hypothesis".to_string()
+    }
+}
+
+//
 fn main() -> Result<()> {
     // read data
     let control = load_f64s("control.dat")?;
@@ -126,7 +142,9 @@ fn main() -> Result<()> {
     let mean_control = mean(control.iter());
     let mean_treatment = mean(treatment.iter());
     println!("                 mu_control = {}", mean_control);
+    println!("                  N_control = {}", control.len());
     println!("               mu_treatment = {}", mean_treatment);
+    println!("                N_treatment = {}", treatment.len());
     println!(
         "(mu_treatment - mu_control) = {}",
         mean_treatment - mean_control
@@ -135,6 +153,7 @@ fn main() -> Result<()> {
     // run permutation test to compute p-value
     let pvalue = permutation_test(&control, &treatment, mean_treatment - mean_control);
     println!("                    p-value = {}", pvalue);
+    println!("                     result = {}", pvalue_to_str(pvalue));
 
     Ok(())
 }
