@@ -118,18 +118,15 @@ fn permutation_test(control: &[f64], treatment: &[f64], mu_diff: f64) -> f64 {
 }
 
 // convert p-value to conventional language
-fn pvalue_to_str(p: f64) -> String {
-    if p < 0.01 {
-        "very strong evidence agaisnt null hypothesis".to_string()
-    } else if p < 0.025 {
-        "strong evidence against null hypothesis".to_string()
-    } else if p < 0.05 {
-        "reasonably strong evidence against null hypothesis".to_string()
-    } else if p < 0.10 {
-        "borderline evidence against null hypothesis".to_string()
-    } else {
-        "no evidence against null hypothesis".to_string()
+fn pvalue_to_string(p: f64) -> String {
+    match p {
+        p if p < 0.01 => "very strong evidence against null hypothesis",
+        p if p < 0.025 => "strong evidence against null hypothesis",
+        p if p < 0.05 => "reasonably strong evidence against null hypothesis",
+        p if p < 0.10 => "borderline evidence against null hypothesis",
+        _ => "no evidence against null hypothesis",
     }
+    .to_string()
 }
 
 //
@@ -153,7 +150,7 @@ fn main() -> Result<()> {
     // run permutation test to compute p-value
     let pvalue = permutation_test(&control, &treatment, mean_treatment - mean_control);
     println!("                    p-value = {}", pvalue);
-    println!("                     result = {}", pvalue_to_str(pvalue));
+    println!("                     result = {}", pvalue_to_string(pvalue));
 
     Ok(())
 }
