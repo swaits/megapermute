@@ -14,20 +14,31 @@ const N_THREADS: usize = 1_000;
 // the number of permutation tests to run per "thread" (above)
 const N_PERMUTATIONS_PER_THREAD: usize = 1_000;
 
-// load a file of numbers as f64 and panic if we run into any problems
+// load a file of numbers as f64 and panic if we run into any problems.
+// This function takes a filename as a string and returns a vector of f64s.
+// If there is an error, it will return a Result with an error message.
 fn load_f64s(filename: &str) -> Result<Vec<f64>> {
+    // Open the file and read it into a buffer.
     let f = BufReader::new(File::open(filename)?);
+    // Map each line of the file to a f64.
     Ok(f.lines()
         .map(|l| {
+            // If there is an error reading the line, panic.
             l.expect("input error: unable to read line")
+                // If there is an error parsing the line, panic.
                 .parse::<f64>()
                 .expect("parse error: unable to parse f64")
         })
+        // Collect the f64s into a vector.
         .collect())
 }
 
-// accepts an iterator of f64's and computes mean using Welford's online algorithm
+// This function accepts an iterator of f64's and computes mean using Welford's online algorithm
 fn mean<'a>(iter: impl Iterator<Item = &'a f64>) -> f64 {
+    // The function uses the enumerate method to get the index and value of each element in the iterator
+    // The fold method is used to iterate through the iterator and add the values to the accumulator
+    // The accumulator is initialized to 0.0
+    // The accumulator is updated by adding the difference between the current value and the accumulator divided by the index plus 1
     iter.enumerate()
         .fold(0.0, |mu, (i, x)| mu + ((x - mu) / (i + 1) as f64))
 }
@@ -129,7 +140,6 @@ fn pvalue_to_string(p: f64) -> String {
     .to_string()
 }
 
-//
 fn main() -> Result<()> {
     // read data
     let control = load_f64s("control.dat")?;
@@ -168,6 +178,8 @@ mod tests {
         (a - b).abs() < epsilon
     }
 
+    // This is a test file for the permutation test.
+    // It tests the permutation test on the mouse data from Table 2.1 in "An Introduction to the Bootstrap" (book)
     #[test]
     fn test_mouse_data() {
         // test data from Table 2.1 in "An Introduction to the Bootstrap" (book)
